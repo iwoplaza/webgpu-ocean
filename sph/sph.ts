@@ -1,5 +1,5 @@
-import { TgpuBuffer, TgpuRoot } from "typegpu";
-import { f32, struct, u32 } from "typegpu/data";
+import tgpu, { TgpuBindGroup, TgpuBuffer, TgpuRoot, Uniform } from "typegpu";
+import { arrayOf, f32, i32, struct, u32 } from "typegpu/data";
 import { PrefixSumKernel } from "webgpu-radix-sort";
 
 import gridClear from "./grid/gridClear.wgsl";
@@ -7,33 +7,33 @@ import gridBuild from "./grid/gridBuild.wgsl";
 import reorderParticles from "./grid/reorderParticles.wgsl";
 import density from "./density.wgsl";
 import force from "./force.wgsl";
-import integrate from "./integrate.wgsl";
-import copyPosition from "./copyPosition.wgsl";
+import { integrateShader, integrateLayout, RealBoxSize } from "./integrate";
+import { copyPositionShader, copyPositionLayout } from "./copyPosition";
 
 import { renderUniformsViews, numParticlesMax } from "../common";
+import { SPHParams } from "./shared";
 
 export const sphParticleStructSize = 64;
 
-const RealBoxSize = struct({
+const Environment = struct({
+  xGrids: i32,
+  yGrids: i32,
+  zGrids: i32,
+  cellSize: f32,
   xHalf: f32,
   yHalf: f32,
   zHalf: f32,
+  offset: f32,
 });
 
-const SPHParams = struct({
-  mass: f32,
-  kernelRadius: f32,
-  kernelRadiusPow2: f32,
-  kernelRadiusPow5: f32,
-  kernelRadiusPow6: f32,
-  kernelRadiusPow9: f32,
-  dt: f32,
-  stiffness: f32,
-  nearStiffness: f32,
-  restDensity: f32,
-  viscosity: f32,
-  n: u32,
-});
+const gridClearLayout = tgpu
+  .bindGroupLayout({
+    cellParticleCount: {
+      storage: (n: number) => arrayOf(u32, n),
+      access: "mutable",
+    },
+  })
+  .$idx(0);
 
 export class SPHSimulator {
   device: GPUDevice;
@@ -46,18 +46,18 @@ export class SPHSimulator {
   integratePipeline: GPUComputePipeline;
   copyPositionPipeline: GPUComputePipeline;
 
-  gridClearBindGroup: GPUBindGroup;
+  gridClearBindGroup: TgpuBindGroup<(typeof gridClearLayout)["entries"]>;
   gridBuildBindGroup: GPUBindGroup;
   reorderBindGroup: GPUBindGroup;
   densityBindGroup: GPUBindGroup;
   forceBindGroup: GPUBindGroup;
-  integrateBindGroup: GPUBindGroup;
-  copyPositionBindGroup: GPUBindGroup;
+  integrateBindGroup: TgpuBindGroup<(typeof integrateLayout)["entries"]>;
+  copyPositionBindGroup: TgpuBindGroup<(typeof copyPositionLayout)["entries"]>;
 
   cellParticleCountBuffer: GPUBuffer;
   particleBuffer: GPUBuffer;
-  realBoxSizeBuffer: TgpuBuffer<typeof RealBoxSize>;
-  sphParamsBuffer: TgpuBuffer<typeof SPHParams>;
+  realBoxSizeBuffer: TgpuBuffer<typeof RealBoxSize> & Uniform;
+  sphParamsBuffer: TgpuBuffer<typeof SPHParams> & Uniform;
 
   prefixSumKernel: any;
 
@@ -78,14 +78,16 @@ export class SPHSimulator {
     this.renderDiameter = renderDiameter;
     const densityModule = device.createShaderModule({ code: density });
     const forceModule = device.createShaderModule({ code: force });
-    const integrateModule = device.createShaderModule({ code: integrate });
+    const integrateModule = device.createShaderModule({
+      code: integrateShader,
+    });
     const gridBuildModule = device.createShaderModule({ code: gridBuild });
     const gridClearModule = device.createShaderModule({ code: gridClear });
     const reorderParticlesModule = device.createShaderModule({
       code: reorderParticles,
     });
     const copyPositionModule = device.createShaderModule({
-      code: copyPosition,
+      code: copyPositionShader,
     });
 
     const cellSize = 1.0 * this.kernelRadius;
@@ -111,7 +113,9 @@ export class SPHSimulator {
 
     this.gridClearPipeline = device.createComputePipeline({
       label: "grid clear pipeline",
-      layout: "auto",
+      layout: device.createPipelineLayout({
+        bindGroupLayouts: [root.unwrap(gridClearLayout)],
+      }),
       compute: {
         module: gridClearModule,
       },
@@ -146,38 +150,22 @@ export class SPHSimulator {
     });
     this.integratePipeline = device.createComputePipeline({
       label: "integrate pipeline",
-      layout: "auto",
+      layout: device.createPipelineLayout({
+        bindGroupLayouts: [root.unwrap(integrateLayout)],
+      }),
       compute: {
         module: integrateModule,
       },
     });
     this.copyPositionPipeline = device.createComputePipeline({
       label: "copy position pipeline",
-      layout: "auto",
+      layout: device.createPipelineLayout({
+        bindGroupLayouts: [root.unwrap(copyPositionLayout)],
+      }),
       compute: {
         module: copyPositionModule,
       },
     });
-
-    const environmentValues = new ArrayBuffer(32);
-    const environmentViews = {
-      xGrids: new Int32Array(environmentValues, 0, 1),
-      yGrids: new Int32Array(environmentValues, 4, 1),
-      zGrids: new Int32Array(environmentValues, 8, 1),
-      cellSize: new Float32Array(environmentValues, 12, 1),
-      xHalf: new Float32Array(environmentValues, 16, 1),
-      yHalf: new Float32Array(environmentValues, 20, 1),
-      zHalf: new Float32Array(environmentValues, 24, 1),
-      offset: new Float32Array(environmentValues, 28, 1),
-    };
-    environmentViews.xGrids.set([xGrids]);
-    environmentViews.yGrids.set([yGrids]);
-    environmentViews.zGrids.set([zGrids]);
-    environmentViews.cellSize.set([cellSize]);
-    environmentViews.xHalf.set([xHalfMax]);
-    environmentViews.yHalf.set([yHalfMax]);
-    environmentViews.zHalf.set([zHalfMax]);
-    environmentViews.offset.set([offset]);
 
     this.cellParticleCountBuffer = device.createBuffer({
       // 累積和はここに保存
@@ -199,11 +187,19 @@ export class SPHSimulator {
       .createBuffer(RealBoxSize)
       .$usage("uniform")
       .$name("real box size buffer");
-    const environmentBuffer = device.createBuffer({
-      label: "environment buffer",
-      size: environmentValues.byteLength,
-      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-    });
+    const environmentBuffer = root
+      .createBuffer(Environment, {
+        xGrids,
+        yGrids,
+        zGrids,
+        cellSize,
+        xHalf: xHalfMax,
+        yHalf: yHalfMax,
+        zHalf: zHalfMax,
+        offset,
+      })
+      .$usage("uniform")
+      .$name("environment buffer");
     this.sphParamsBuffer = root
       .createBuffer(SPHParams, {
         mass,
@@ -221,14 +217,10 @@ export class SPHSimulator {
       })
       .$usage("uniform")
       .$name("sph params buffer");
-    device.queue.writeBuffer(environmentBuffer, 0, environmentValues);
 
     // BindGroup
-    this.gridClearBindGroup = device.createBindGroup({
-      layout: this.gridClearPipeline.getBindGroupLayout(0),
-      entries: [
-        { binding: 0, resource: { buffer: this.cellParticleCountBuffer } },
-      ],
+    this.gridClearBindGroup = root.createBindGroup(gridClearLayout, {
+      cellParticleCount: this.cellParticleCountBuffer,
     });
     this.gridBuildBindGroup = device.createBindGroup({
       layout: this.gridBuildPipeline.getBindGroupLayout(0),
@@ -236,7 +228,7 @@ export class SPHSimulator {
         { binding: 0, resource: { buffer: this.cellParticleCountBuffer } },
         { binding: 1, resource: { buffer: particleCellOffsetBuffer } },
         { binding: 2, resource: { buffer: particleBuffer } },
-        { binding: 3, resource: { buffer: environmentBuffer } },
+        { binding: 3, resource: { buffer: root.unwrap(environmentBuffer) } },
         { binding: 4, resource: { buffer: root.unwrap(this.sphParamsBuffer) } },
       ],
     });
@@ -247,7 +239,7 @@ export class SPHSimulator {
         { binding: 1, resource: { buffer: targetParticlesBuffer } },
         { binding: 2, resource: { buffer: this.cellParticleCountBuffer } },
         { binding: 3, resource: { buffer: particleCellOffsetBuffer } },
-        { binding: 4, resource: { buffer: environmentBuffer } },
+        { binding: 4, resource: { buffer: root.unwrap(environmentBuffer) } },
         { binding: 5, resource: { buffer: root.unwrap(this.sphParamsBuffer) } },
       ],
     });
@@ -258,7 +250,7 @@ export class SPHSimulator {
         { binding: 0, resource: { buffer: particleBuffer } },
         { binding: 1, resource: { buffer: targetParticlesBuffer } },
         { binding: 2, resource: { buffer: this.cellParticleCountBuffer } },
-        { binding: 3, resource: { buffer: environmentBuffer } },
+        { binding: 3, resource: { buffer: root.unwrap(environmentBuffer) } },
         { binding: 4, resource: { buffer: root.unwrap(this.sphParamsBuffer) } },
       ],
     });
@@ -268,28 +260,19 @@ export class SPHSimulator {
         { binding: 0, resource: { buffer: particleBuffer } },
         { binding: 1, resource: { buffer: targetParticlesBuffer } },
         { binding: 2, resource: { buffer: this.cellParticleCountBuffer } },
-        { binding: 3, resource: { buffer: environmentBuffer } },
+        { binding: 3, resource: { buffer: root.unwrap(environmentBuffer) } },
         { binding: 4, resource: { buffer: root.unwrap(this.sphParamsBuffer) } },
       ],
     });
-    this.integrateBindGroup = device.createBindGroup({
-      layout: this.integratePipeline.getBindGroupLayout(0),
-      entries: [
-        { binding: 0, resource: { buffer: particleBuffer } },
-        {
-          binding: 1,
-          resource: { buffer: root.unwrap(this.realBoxSizeBuffer) },
-        },
-        { binding: 2, resource: { buffer: root.unwrap(this.sphParamsBuffer) } },
-      ],
+    this.integrateBindGroup = root.createBindGroup(integrateLayout, {
+      params: this.sphParamsBuffer,
+      particles: particleBuffer,
+      realBoxSize: this.realBoxSizeBuffer,
     });
-    this.copyPositionBindGroup = device.createBindGroup({
-      layout: this.copyPositionPipeline.getBindGroupLayout(0),
-      entries: [
-        { binding: 0, resource: { buffer: particleBuffer } },
-        { binding: 1, resource: { buffer: posvelBuffer } },
-        { binding: 2, resource: { buffer: root.unwrap(this.sphParamsBuffer) } },
-      ],
+    this.copyPositionBindGroup = root.createBindGroup(copyPositionLayout, {
+      particles: particleBuffer,
+      posvel: posvelBuffer,
+      env: this.sphParamsBuffer,
     });
 
     this.particleBuffer = particleBuffer;
@@ -317,7 +300,7 @@ export class SPHSimulator {
   execute(commandEncoder: GPUCommandEncoder) {
     const computePass = commandEncoder.beginComputePass();
     for (let i = 0; i < 2; i++) {
-      computePass.setBindGroup(0, this.gridClearBindGroup);
+      computePass.setBindGroup(0, this.root.unwrap(this.gridClearBindGroup));
       computePass.setPipeline(this.gridClearPipeline);
       computePass.dispatchWorkgroups(Math.ceil((this.gridCount + 1) / 64));
       computePass.setBindGroup(0, this.gridBuildBindGroup);
@@ -342,10 +325,10 @@ export class SPHSimulator {
       computePass.setBindGroup(0, this.forceBindGroup);
       computePass.setPipeline(this.forcePipeline);
       computePass.dispatchWorkgroups(Math.ceil(this.numParticles / 64));
-      computePass.setBindGroup(0, this.integrateBindGroup);
+      computePass.setBindGroup(0, this.root.unwrap(this.integrateBindGroup));
       computePass.setPipeline(this.integratePipeline);
       computePass.dispatchWorkgroups(Math.ceil(this.numParticles / 64));
-      computePass.setBindGroup(0, this.copyPositionBindGroup);
+      computePass.setBindGroup(0, this.root.unwrap(this.copyPositionBindGroup));
       computePass.setPipeline(this.copyPositionPipeline);
       computePass.dispatchWorkgroups(Math.ceil(this.numParticles / 64));
     }

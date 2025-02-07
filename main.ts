@@ -11,6 +11,7 @@ import {
   numParticlesMax,
 } from "./common";
 import { FluidRenderer } from "./render/fluidRender";
+import { PosVelArray } from "./sph/shared";
 
 /// <reference types="@webgpu/types" />
 
@@ -114,11 +115,10 @@ async function main() {
     size: maxParticleStructSize * numParticlesMax,
     usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
   });
-  const posvelBuffer = device.createBuffer({
-    label: "position buffer",
-    size: 32 * numParticlesMax, // 32 = 2 x vec3f + padding
-    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
-  });
+  const posvelBuffer = root
+    .createBuffer(PosVelArray(numParticlesMax))
+    .$name("position buffer")
+    .$usage("storage");
   const renderUniformBuffer = device.createBuffer({
     label: "filter uniform buffer",
     size: renderUniformsValues.byteLength,
@@ -154,7 +154,7 @@ async function main() {
   const mlsmpmZoomRate = 1.5;
   const mlsmpmSimulator = new MLSMPMSimulator(
     particleBuffer,
-    posvelBuffer,
+    root.unwrap(posvelBuffer),
     mlsmpmDiameter,
     device,
   );
@@ -164,7 +164,7 @@ async function main() {
   const sphZoomRate = 0.05;
   const sphSimulator = new SPHSimulator(
     particleBuffer,
-    posvelBuffer,
+    root.unwrap(posvelBuffer),
     sphDiameter,
     root,
   );
@@ -175,7 +175,7 @@ async function main() {
     presentationFormat,
     mlsmpmRadius,
     mlsmpmFov,
-    posvelBuffer,
+    root.unwrap(posvelBuffer),
     renderUniformBuffer,
     cubemapTextureView,
   );
@@ -185,7 +185,7 @@ async function main() {
     presentationFormat,
     sphRadius,
     sphFov,
-    posvelBuffer,
+    root.unwrap(posvelBuffer),
     renderUniformBuffer,
     cubemapTextureView,
   );

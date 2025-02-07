@@ -4,7 +4,7 @@ import { p2g_2Shader, p2g_2Layout } from "./p2g_2";
 import { g2pShader, g2pLayout } from "./g2p";
 import { copyPositionFn, copyPositionLayout } from "./copyPosition";
 
-import { numParticlesMax, PosVelArray, renderUniformsViews } from "../common";
+import { numParticlesMax, PosVelArray, renderUniforms } from "../common";
 import tgpu, {
   Storage,
   TgpuBindGroup,
@@ -240,7 +240,7 @@ export class MLSMPMSimulator {
   }
 
   reset(numParticles: number, initBoxSize: number[]) {
-    renderUniformsViews.sphere_size.set([this.renderDiameter]);
+    renderUniforms.sphere_size = this.renderDiameter;
     const particleData = this.initDambreak(initBoxSize, numParticles);
     const maxGridCount = this.max_x_grids * this.max_y_grids * this.max_z_grids;
     this.gridCount =

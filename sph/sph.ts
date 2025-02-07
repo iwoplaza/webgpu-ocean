@@ -10,7 +10,7 @@ import force from "./force.wgsl";
 import { integrateShader, integrateLayout, RealBoxSize } from "./integrate";
 import { copyPositionShader, copyPositionLayout } from "./copyPosition";
 
-import { renderUniformsViews, numParticlesMax } from "../common";
+import { renderUniforms, numParticlesMax } from "../common";
 import { Environment, SPHParams } from "./shared";
 
 export const sphParticleStructSize = 64;
@@ -268,7 +268,7 @@ export class SPHSimulator {
   }
 
   reset(numParticles: number, initHalfBoxSize: number[]) {
-    renderUniformsViews.sphere_size.set([this.renderDiameter]);
+    renderUniforms.sphere_size = this.renderDiameter;
     const particleData = this.initDambreak(initHalfBoxSize, numParticles);
     const numParticleValue = new Float32Array(1);
     numParticleValue[0] = this.numParticles;

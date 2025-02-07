@@ -5,11 +5,7 @@ import { mat4 } from "wgpu-matrix";
 import { Camera } from "./camera";
 import { mlsmpmParticleStructSize, MLSMPMSimulator } from "./mls-mpm/mls-mpm";
 import { SPHSimulator, sphParticleStructSize } from "./sph/sph";
-import {
-  renderUniformsViews,
-  renderUniformsValues,
-  numParticlesMax,
-} from "./common";
+import { renderUniforms, RenderUniforms, numParticlesMax } from "./common";
 import { FluidRenderer } from "./render/fluidRender";
 import { PosVelArray } from "./common";
 
@@ -103,7 +99,8 @@ async function main() {
   console.log("cubemap initialization done");
 
   // uniform buffer を作る
-  renderUniformsViews.texel_size.set([1.0 / canvas.width, 1.0 / canvas.height]);
+  renderUniforms.texel_size.x = 1.0 / canvas.width;
+  renderUniforms.texel_size.y = 1.0 / canvas.height;
 
   // storage buffer を作る
   const maxParticleStructSize = Math.max(
@@ -119,11 +116,10 @@ async function main() {
     .createBuffer(PosVelArray(numParticlesMax))
     .$name("position buffer")
     .$usage("storage");
-  const renderUniformBuffer = device.createBuffer({
-    label: "filter uniform buffer",
-    size: renderUniformsValues.byteLength,
-    usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-  });
+  const renderUniformBuffer = root
+    .createBuffer(RenderUniforms)
+    .$name("filter uniform buffer")
+    .$usage("uniform");
 
   console.log("buffer allocating done");
 
@@ -176,7 +172,7 @@ async function main() {
     mlsmpmRadius,
     mlsmpmFov,
     root.unwrap(posvelBuffer),
-    renderUniformBuffer,
+    root.unwrap(renderUniformBuffer),
     cubemapTextureView,
   );
   const sphRenderer = new FluidRenderer(
@@ -186,7 +182,7 @@ async function main() {
     sphRadius,
     sphFov,
     root.unwrap(posvelBuffer),
-    renderUniformBuffer,
+    root.unwrap(renderUniformBuffer),
     cubemapTextureView,
   );
 
@@ -326,7 +322,7 @@ async function main() {
     } else {
       mlsmpmSimulator.changeBoxSize(realBoxSize);
     }
-    device.queue.writeBuffer(renderUniformBuffer, 0, renderUniformsValues);
+    renderUniformBuffer.write(renderUniforms);
 
     const commandEncoder = device.createCommandEncoder();
 

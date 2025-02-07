@@ -1,7 +1,7 @@
 import { clearGridShader, clearGridLayout } from "./clearGrid";
 import p2g_1 from "./p2g_1.wgsl";
 import p2g_2 from "./p2g_2.wgsl";
-import g2p from "./g2p.wgsl";
+import { g2pShader, g2pLayout } from "./g2p";
 import { copyPositionShader, copyPositionLayout } from "./copyPosition";
 
 import { numParticlesMax, renderUniformsViews } from "../common";
@@ -32,7 +32,7 @@ export class MLSMPMSimulator {
   p2g1BindGroup: GPUBindGroup;
   p2g2BindGroup: GPUBindGroup;
   updateGridBindGroup: TgpuBindGroup<(typeof updateGridLayout)["entries"]>;
-  g2pBindGroup: GPUBindGroup;
+  g2pBindGroup: TgpuBindGroup<(typeof g2pLayout)["entries"]>;
   copyPositionBindGroup: TgpuBindGroup<(typeof copyPositionLayout)["entries"]>;
 
   particleBuffer: GPUBuffer;
@@ -58,7 +58,7 @@ export class MLSMPMSimulator {
     const updateGridModule = device.createShaderModule({
       code: updateGridShader,
     });
-    const g2pModule = device.createShaderModule({ code: g2p });
+    const g2pModule = device.createShaderModule({ code: g2pShader });
     const copyPositionModule = device.createShaderModule({
       code: copyPositionShader,
     });
@@ -119,7 +119,9 @@ export class MLSMPMSimulator {
     });
     this.g2pPipeline = device.createComputePipeline({
       label: "g2p pipeline",
-      layout: "auto",
+      layout: device.createPipelineLayout({
+        bindGroupLayouts: [root.unwrap(g2pLayout)],
+      }),
       compute: {
         module: g2pModule,
         constants: {
@@ -185,20 +187,11 @@ export class MLSMPMSimulator {
       realBoxSize: this.realBoxSizeBuffer,
       initBoxSize: this.initBoxSizeBuffer,
     });
-    this.g2pBindGroup = device.createBindGroup({
-      layout: this.g2pPipeline.getBindGroupLayout(0),
-      entries: [
-        { binding: 0, resource: { buffer: particleBuffer } },
-        { binding: 1, resource: { buffer: cellBuffer } },
-        {
-          binding: 2,
-          resource: this.realBoxSizeBuffer,
-        },
-        {
-          binding: 3,
-          resource: this.initBoxSizeBuffer,
-        },
-      ],
+    this.g2pBindGroup = root.createBindGroup(g2pLayout, {
+      particles: particleBuffer,
+      cells: cellBuffer,
+      realBoxSize: this.realBoxSizeBuffer,
+      initBoxSize: this.initBoxSizeBuffer,
     });
     this.copyPositionBindGroup = root.createBindGroup(copyPositionLayout, {
       particles: particleBuffer,
@@ -290,7 +283,7 @@ export class MLSMPMSimulator {
       computePass.setBindGroup(0, this.root.unwrap(this.updateGridBindGroup));
       computePass.setPipeline(this.updateGridPipeline);
       computePass.dispatchWorkgroups(Math.ceil(this.gridCount / 64));
-      computePass.setBindGroup(0, this.g2pBindGroup);
+      computePass.setBindGroup(0, this.root.unwrap(this.g2pBindGroup));
       computePass.setPipeline(this.g2pPipeline);
       computePass.dispatchWorkgroups(Math.ceil(this.numParticles / 64));
       computePass.setBindGroup(0, this.root.unwrap(this.copyPositionBindGroup));

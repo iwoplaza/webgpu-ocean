@@ -260,18 +260,23 @@ export class MLSMPMSimulator {
       computePass.setBindGroup(0, this.root.unwrap(this.clearGridBindGroup));
       computePass.setPipeline(this.clearGridPipeline);
       computePass.dispatchWorkgroups(Math.ceil(this.gridCount / 64)); // これは gridCount だよな？
+
       computePass.setBindGroup(0, this.root.unwrap(this.p2g1BindGroup));
       computePass.setPipeline(this.p2g1Pipeline);
       computePass.dispatchWorkgroups(Math.ceil(this.numParticles / 64));
+
       computePass.setBindGroup(0, this.root.unwrap(this.p2g2BindGroup));
       computePass.setPipeline(this.p2g2Pipeline);
       computePass.dispatchWorkgroups(Math.ceil(this.numParticles / 64));
+
       computePass.setBindGroup(0, this.root.unwrap(this.updateGridBindGroup));
       computePass.setPipeline(this.updateGridPipeline);
       computePass.dispatchWorkgroups(Math.ceil(this.gridCount / 64));
+
       computePass.setBindGroup(0, this.root.unwrap(this.g2pBindGroup));
       computePass.setPipeline(this.g2pPipeline);
       computePass.dispatchWorkgroups(Math.ceil(this.numParticles / 64));
+
       computePass.setBindGroup(0, this.root.unwrap(this.copyPositionBindGroup));
       computePass.setPipeline(this.copyPositionPipeline);
       computePass.dispatchWorkgroups(Math.ceil(this.numParticles / 64));

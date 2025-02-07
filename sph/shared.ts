@@ -1,4 +1,4 @@
-import { arrayOf, f32, struct, u32, vec3f } from "typegpu/data";
+import { arrayOf, f32, i32, struct, u32, vec3f } from "typegpu/data";
 
 export const Particle = struct({
   position: vec3f,
@@ -23,4 +23,15 @@ export const SPHParams = struct({
   restDensity: f32,
   viscosity: f32,
   n: u32,
+});
+
+export const Environment = struct({
+  xGrids: i32,
+  yGrids: i32,
+  zGrids: i32,
+  cellSize: f32,
+  xHalf: f32,
+  yHalf: f32,
+  zHalf: f32,
+  offset: f32,
 });

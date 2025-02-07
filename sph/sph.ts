@@ -1,30 +1,19 @@
 import tgpu, { TgpuBindGroup, TgpuBuffer, TgpuRoot, Uniform } from "typegpu";
-import { arrayOf, f32, i32, struct, u32 } from "typegpu/data";
+import { arrayOf, f32u32, u32 } from "typegpu/data";
 import { PrefixSumKernel } from "webgpu-radix-sort";
 
 import gridClear from "./grid/gridClear.wgsl";
 import gridBuild from "./grid/gridBuild.wgsl";
 import reorderParticles from "./grid/reorderParticles.wgsl";
-import density from "./density.wgsl";
+import { densityShader } from "./density";
 import force from "./force.wgsl";
 import { integrateShader, integrateLayout, RealBoxSize } from "./integrate";
 import { copyPositionShader, copyPositionLayout } from "./copyPosition";
 
 import { renderUniformsViews, numParticlesMax } from "../common";
-import { SPHParams } from "./shared";
+import { Environment, SPHParams } from "./shared";
 
 export const sphParticleStructSize = 64;
-
-const Environment = struct({
-  xGrids: i32,
-  yGrids: i32,
-  zGrids: i32,
-  cellSize: f32,
-  xHalf: f32,
-  yHalf: f32,
-  zHalf: f32,
-  offset: f32,
-});
 
 const gridClearLayout = tgpu
   .bindGroupLayout({
@@ -76,7 +65,7 @@ export class SPHSimulator {
     const device = root.device;
     this.device = device;
     this.renderDiameter = renderDiameter;
-    const densityModule = device.createShaderModule({ code: density });
+    const densityModule = device.createShaderModule({ code: densityShader });
     const forceModule = device.createShaderModule({ code: force });
     const integrateModule = device.createShaderModule({
       code: integrateShader,

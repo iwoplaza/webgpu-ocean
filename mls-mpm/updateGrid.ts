@@ -1,14 +1,6 @@
 import tgpu from "typegpu";
-import { arrayOf, i32, struct, vec3f } from "typegpu/data";
-
-const Cell = struct({
-  vx: i32,
-  vy: i32,
-  vz: i32,
-  mass: i32,
-}).$name("Cell");
-
-const CellArray = (n: number) => arrayOf(Cell, n);
+import { vec3f } from "typegpu/data";
+import { CellArray } from "./shared";
 
 export const updateGridLayout = tgpu
   .bindGroupLayout({

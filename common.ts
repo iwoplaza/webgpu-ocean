@@ -1,3 +1,5 @@
+import { arrayOf, struct, vec3f } from "typegpu/data";
+
 export const renderUniformsValues = new ArrayBuffer(272);
 export const renderUniformsViews = {
   texel_size: new Float32Array(renderUniformsValues, 0, 2),
@@ -9,3 +11,10 @@ export const renderUniformsViews = {
 };
 
 export const numParticlesMax = 200000;
+
+export const PosVel = struct({
+  position: vec3f,
+  v: vec3f,
+});
+
+export const PosVelArray = (n: number) => arrayOf(PosVel, n);

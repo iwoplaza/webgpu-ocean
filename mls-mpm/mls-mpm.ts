@@ -1,12 +1,13 @@
-import clearGrid from "./clearGrid.wgsl";
+import { clearGridShader, clearGridLayout } from "./clearGrid";
 import p2g_1 from "./p2g_1.wgsl";
 import p2g_2 from "./p2g_2.wgsl";
 import g2p from "./g2p.wgsl";
 import { copyPositionShader, copyPositionLayout } from "./copyPosition";
 
 import { numParticlesMax, renderUniformsViews } from "../common";
-import { TgpuBindGroup, TgpuRoot } from "typegpu";
+import { TgpuBindGroup, TgpuBuffer, TgpuRoot, Uniform } from "typegpu";
 import { updateGridShader, updateGridLayout } from "./updateGrid";
+import { Vec3f, vec3f } from "typegpu/data";
 
 export const mlsmpmParticleStructSize = 80;
 
@@ -15,8 +16,8 @@ export class MLSMPMSimulator {
   max_y_grids = 64;
   max_z_grids = 64;
   cellStructSize = 16;
-  realBoxSizeBuffer: GPUBuffer;
-  initBoxSizeBuffer: GPUBuffer;
+  realBoxSizeBuffer: TgpuBuffer<Vec3f> & Uniform;
+  initBoxSizeBuffer: TgpuBuffer<Vec3f> & Uniform;
   numParticles = 0;
   gridCount = 0;
 
@@ -27,7 +28,7 @@ export class MLSMPMSimulator {
   g2pPipeline: GPUComputePipeline;
   copyPositionPipeline: GPUComputePipeline;
 
-  clearGridBindGroup: GPUBindGroup;
+  clearGridBindGroup: TgpuBindGroup<(typeof clearGridLayout)["entries"]>;
   p2g1BindGroup: GPUBindGroup;
   p2g2BindGroup: GPUBindGroup;
   updateGridBindGroup: TgpuBindGroup<(typeof updateGridLayout)["entries"]>;
@@ -49,7 +50,9 @@ export class MLSMPMSimulator {
     const device = root.device;
     this.device = device;
     this.renderDiameter = renderDiameter;
-    const clearGridModule = device.createShaderModule({ code: clearGrid });
+    const clearGridModule = device.createShaderModule({
+      code: clearGridShader,
+    });
     const p2g1Module = device.createShaderModule({ code: p2g_1 });
     const p2g2Module = device.createShaderModule({ code: p2g_2 });
     const updateGridModule = device.createShaderModule({
@@ -70,7 +73,9 @@ export class MLSMPMSimulator {
 
     this.clearGridPipeline = device.createComputePipeline({
       label: "clear grid pipeline",
-      layout: "auto",
+      layout: device.createPipelineLayout({
+        bindGroupLayouts: [root.unwrap(clearGridLayout)],
+      }),
       compute: {
         module: clearGridModule,
       },
@@ -134,38 +139,34 @@ export class MLSMPMSimulator {
     });
 
     const maxGridCount = this.max_x_grids * this.max_y_grids * this.max_z_grids;
-    const realBoxSizeValues = new ArrayBuffer(12);
-    const initBoxSizeValues = new ArrayBuffer(12);
 
     const cellBuffer = device.createBuffer({
       label: "cells buffer",
       size: this.cellStructSize * maxGridCount,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     });
-    this.realBoxSizeBuffer = device.createBuffer({
-      label: "real box size buffer",
-      size: realBoxSizeValues.byteLength,
-      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-    });
-    this.initBoxSizeBuffer = device.createBuffer({
-      label: "init box size buffer",
-      size: initBoxSizeValues.byteLength,
-      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-    });
-    device.queue.writeBuffer(this.initBoxSizeBuffer, 0, initBoxSizeValues);
-    device.queue.writeBuffer(this.realBoxSizeBuffer, 0, realBoxSizeValues);
+    this.realBoxSizeBuffer = root
+      .createBuffer(vec3f)
+      .$usage("uniform")
+      .$name("real box size buffer");
+    this.initBoxSizeBuffer = root
+      .createBuffer(vec3f)
+      .$usage("uniform")
+      .$name("init box size buffer");
 
     // BindGroup
-    this.clearGridBindGroup = device.createBindGroup({
-      layout: this.clearGridPipeline.getBindGroupLayout(0),
-      entries: [{ binding: 0, resource: { buffer: cellBuffer } }],
+    this.clearGridBindGroup = root.createBindGroup(clearGridLayout, {
+      cells: cellBuffer,
     });
     this.p2g1BindGroup = device.createBindGroup({
       layout: this.p2g1Pipeline.getBindGroupLayout(0),
       entries: [
         { binding: 0, resource: { buffer: particleBuffer } },
         { binding: 1, resource: { buffer: cellBuffer } },
-        { binding: 2, resource: { buffer: this.initBoxSizeBuffer } },
+        {
+          binding: 2,
+          resource: this.initBoxSizeBuffer,
+        },
       ],
     });
     this.p2g2BindGroup = device.createBindGroup({
@@ -173,7 +174,10 @@ export class MLSMPMSimulator {
       entries: [
         { binding: 0, resource: { buffer: particleBuffer } },
         { binding: 1, resource: { buffer: cellBuffer } },
-        { binding: 2, resource: { buffer: this.initBoxSizeBuffer } },
+        {
+          binding: 2,
+          resource: this.initBoxSizeBuffer,
+        },
       ],
     });
     this.updateGridBindGroup = root.createBindGroup(updateGridLayout, {
@@ -186,8 +190,14 @@ export class MLSMPMSimulator {
       entries: [
         { binding: 0, resource: { buffer: particleBuffer } },
         { binding: 1, resource: { buffer: cellBuffer } },
-        { binding: 2, resource: { buffer: this.realBoxSizeBuffer } },
-        { binding: 3, resource: { buffer: this.initBoxSizeBuffer } },
+        {
+          binding: 2,
+          resource: this.realBoxSizeBuffer,
+        },
+        {
+          binding: 3,
+          resource: this.initBoxSizeBuffer,
+        },
       ],
     });
     this.copyPositionBindGroup = root.createBindGroup(copyPositionLayout, {
@@ -255,14 +265,12 @@ export class MLSMPMSimulator {
     if (this.gridCount > maxGridCount) {
       throw new Error("gridCount should be equal to or less than maxGridCount");
     }
-    const realBoxSizeValues = new ArrayBuffer(12);
-    const realBoxSizeViews = new Float32Array(realBoxSizeValues);
-    const initBoxSizeValues = new ArrayBuffer(12);
-    const initBoxSizeViews = new Float32Array(initBoxSizeValues);
-    initBoxSizeViews.set(initBoxSize);
-    realBoxSizeViews.set(initBoxSize);
-    this.device.queue.writeBuffer(this.initBoxSizeBuffer, 0, initBoxSizeValues);
-    this.device.queue.writeBuffer(this.realBoxSizeBuffer, 0, realBoxSizeValues);
+    this.initBoxSizeBuffer.write(
+      vec3f(initBoxSize[0], initBoxSize[1], initBoxSize[2]),
+    );
+    this.realBoxSizeBuffer.write(
+      vec3f(initBoxSize[0], initBoxSize[1], initBoxSize[2]),
+    );
     this.device.queue.writeBuffer(this.particleBuffer, 0, particleData);
     console.log(this.numParticles);
   }
@@ -270,7 +278,7 @@ export class MLSMPMSimulator {
   execute(commandEncoder: GPUCommandEncoder) {
     const computePass = commandEncoder.beginComputePass();
     for (let i = 0; i < 2; i++) {
-      computePass.setBindGroup(0, this.clearGridBindGroup);
+      computePass.setBindGroup(0, this.root.unwrap(this.clearGridBindGroup));
       computePass.setPipeline(this.clearGridPipeline);
       computePass.dispatchWorkgroups(Math.ceil(this.gridCount / 64)); // これは gridCount だよな？
       computePass.setBindGroup(0, this.p2g1BindGroup);
@@ -293,9 +301,8 @@ export class MLSMPMSimulator {
   }
 
   changeBoxSize(realBoxSize: number[]) {
-    const realBoxSizeValues = new ArrayBuffer(12);
-    const realBoxSizeViews = new Float32Array(realBoxSizeValues);
-    realBoxSizeViews.set(realBoxSize);
-    this.device.queue.writeBuffer(this.realBoxSizeBuffer, 0, realBoxSizeViews);
+    this.realBoxSizeBuffer.write(
+      vec3f(realBoxSize[0], realBoxSize[1], realBoxSize[2]),
+    );
   }
 }

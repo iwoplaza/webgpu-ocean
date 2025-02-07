@@ -11,7 +11,7 @@ import {
   numParticlesMax,
 } from "./common";
 import { FluidRenderer } from "./render/fluidRender";
-import { PosVelArray } from "./sph/shared";
+import { PosVelArray } from "./common";
 
 /// <reference types="@webgpu/types" />
 

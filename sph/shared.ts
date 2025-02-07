@@ -24,10 +24,3 @@ export const SPHParams = struct({
   viscosity: f32,
   n: u32,
 });
-
-export const PosVel = struct({
-  position: vec3f,
-  v: vec3f,
-});
-
-export const PosVelArray = (n: number) => arrayOf(PosVel, n);

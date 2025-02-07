@@ -1,5 +1,6 @@
 import tgpu from "typegpu";
-import { ParticleArray, PosVelArray, SPHParams } from "./shared";
+import { ParticleArray, SPHParams } from "./shared";
+import { PosVelArray } from "../common";
 
 export const copyPositionLayout = tgpu
   .bindGroupLayout({

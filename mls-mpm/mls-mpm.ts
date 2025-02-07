@@ -4,8 +4,8 @@ import p2g_2 from "./p2g_2.wgsl";
 import { g2pShader, g2pLayout } from "./g2p";
 import { copyPositionShader, copyPositionLayout } from "./copyPosition";
 
-import { numParticlesMax, renderUniformsViews } from "../common";
-import { TgpuBindGroup, TgpuBuffer, TgpuRoot, Uniform } from "typegpu";
+import { numParticlesMax, PosVelArray, renderUniformsViews } from "../common";
+import { Storage, TgpuBindGroup, TgpuBuffer, TgpuRoot, Uniform } from "typegpu";
 import { updateGridShader, updateGridLayout } from "./updateGrid";
 import { Vec3f, vec3f } from "typegpu/data";
 
@@ -43,7 +43,7 @@ export class MLSMPMSimulator {
 
   constructor(
     particleBuffer: GPUBuffer,
-    posvelBuffer: GPUBuffer,
+    posvelBuffer: TgpuBuffer<ReturnType<typeof PosVelArray>> & Storage,
     renderDiameter: number,
     private root: TgpuRoot,
   ) {
@@ -112,7 +112,6 @@ export class MLSMPMSimulator {
       compute: {
         module: updateGridModule,
         constants: {
-          fixed_point_multiplier: constants.fixed_point_multiplier,
           dt: constants.dt,
         },
       },
@@ -125,7 +124,6 @@ export class MLSMPMSimulator {
       compute: {
         module: g2pModule,
         constants: {
-          fixed_point_multiplier: constants.fixed_point_multiplier,
           dt: constants.dt,
         },
       },

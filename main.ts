@@ -154,7 +154,7 @@ async function main() {
   const mlsmpmZoomRate = 1.5;
   const mlsmpmSimulator = new MLSMPMSimulator(
     particleBuffer,
-    root.unwrap(posvelBuffer),
+    posvelBuffer,
     mlsmpmDiameter,
     root,
   );

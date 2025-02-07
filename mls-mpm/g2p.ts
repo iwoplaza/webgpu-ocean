@@ -1,6 +1,7 @@
 import tgpu from "typegpu";
 import { CellArray, ParticleArray } from "./shared";
 import { vec3f } from "typegpu/data";
+import { decodeFixedPoint } from "./fixedPoint";
 
 export const g2pLayout = tgpu
   .bindGroupLayout({
@@ -13,12 +14,7 @@ export const g2pLayout = tgpu
 
 export const g2pShader = tgpu.resolve({
   template: /* wgsl */ `
-    override fixed_point_multiplier: f32;
     override dt: f32;
-
-    fn decodeFixedPoint(fixed_point: i32) -> f32 {
-   	  return f32(fixed_point) / fixed_point_multiplier;
-    }
 
     @compute @workgroup_size(64)
     fn g2p(@builtin(global_invocation_id) id: vec3<u32>) {
@@ -88,5 +84,5 @@ export const g2pShader = tgpu.resolve({
         }
     }
   `,
-  externals: { ...g2pLayout.bound },
+  externals: { ...g2pLayout.bound, decodeFixedPoint },
 });

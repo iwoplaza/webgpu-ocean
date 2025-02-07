@@ -1,6 +1,7 @@
 import tgpu from "typegpu";
 import { vec3f } from "typegpu/data";
 import { CellArray } from "./shared";
+import { decodeFixedPoint, encodeFixedPoint } from "./fixedPoint";
 
 export const updateGridLayout = tgpu
   .bindGroupLayout({
@@ -12,16 +13,7 @@ export const updateGridLayout = tgpu
 
 export const updateGridShader = tgpu.resolve({
   template: `
-    override fixed_point_multiplier: f32;
     override dt: f32;
-
-    fn encodeFixedPoint(floating_point: f32) -> i32 {
-   	  return i32(floating_point * fixed_point_multiplier);
-    }
-
-    fn decodeFixedPoint(fixed_point: i32) -> f32 {
-   	  return f32(fixed_point) / fixed_point_multiplier;
-    }
 
     @compute @workgroup_size(64)
     fn updateGrid(@builtin(global_invocation_id) id: vec3<u32>) {
@@ -48,5 +40,9 @@ export const updateGridShader = tgpu.resolve({
       }
     }
   `,
-  externals: { _EXT_: updateGridLayout.bound },
+  externals: {
+    _EXT_: updateGridLayout.bound,
+    encodeFixedPoint,
+    decodeFixedPoint,
+  },
 });

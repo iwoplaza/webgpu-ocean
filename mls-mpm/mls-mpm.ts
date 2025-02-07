@@ -1,6 +1,6 @@
 import { clearGridShader, clearGridLayout } from "./clearGrid";
-import p2g_1 from "./p2g_1.wgsl";
-import p2g_2 from "./p2g_2.wgsl";
+import { p2g_1Shader, p2g_1Layout } from "./p2g_1";
+import { p2g_2Shader, p2g_2Layout } from "./p2g_2";
 import { g2pShader, g2pLayout } from "./g2p";
 import { copyPositionShader, copyPositionLayout } from "./copyPosition";
 
@@ -53,8 +53,8 @@ export class MLSMPMSimulator {
     const clearGridModule = device.createShaderModule({
       code: clearGridShader,
     });
-    const p2g1Module = device.createShaderModule({ code: p2g_1 });
-    const p2g2Module = device.createShaderModule({ code: p2g_2 });
+    const p2g1Module = device.createShaderModule({ code: p2g_1Shader });
+    const p2g2Module = device.createShaderModule({ code: p2g_2Shader });
     const updateGridModule = device.createShaderModule({
       code: updateGridShader,
     });
@@ -85,9 +85,6 @@ export class MLSMPMSimulator {
       layout: "auto",
       compute: {
         module: p2g1Module,
-        constants: {
-          fixed_point_multiplier: constants.fixed_point_multiplier,
-        },
       },
     });
     this.p2g2Pipeline = device.createComputePipeline({
@@ -96,7 +93,6 @@ export class MLSMPMSimulator {
       compute: {
         module: p2g2Module,
         constants: {
-          fixed_point_multiplier: constants.fixed_point_multiplier,
           stiffness: constants.stiffness,
           rest_density: constants.restDensity,
           dynamic_viscosity: constants.dynamic_viscosity,

@@ -1,6 +1,7 @@
 import tgpu from "typegpu";
 import { ParticleArray } from "./shared";
 import { PosVelArray } from "../common";
+import { builtin } from "typegpu/data";
 
 export const copyPositionLayout = tgpu
   .bindGroupLayout({
@@ -9,15 +10,19 @@ export const copyPositionLayout = tgpu
   })
   .$idx(0);
 
-export const copyPositionShader = tgpu.resolve({
-  template: /* wgsl */ `
-    @compute @workgroup_size(64)
-    fn copyPosition(@builtin(global_invocation_id) id: vec3<u32>) {
-      if (id.x < arrayLength(&_EXT_.particles)) { // 変える
-        _EXT_.posvel[id.x].position = _EXT_.particles[id.x].position;
-        _EXT_.posvel[id.x].v = _EXT_.particles[id.x].v;
+export const copyPositionFn = tgpu["~unstable"]
+  .computeFn(
+    {
+      gid: builtin.globalInvocationId,
+    },
+    { workgroupSize: [64] },
+  )
+  .does(
+    /* wgsl */ `(input: Input) {
+      if (input.gid.x < arrayLength(&particles)) { // 変える
+        posvel[input.gid.x].position = particles[input.gid.x].position;
+        posvel[input.gid.x].v = particles[input.gid.x].v;
       }
-    }
-  `,
-  externals: { _EXT_: copyPositionLayout.bound },
-});
+    }`,
+  )
+  .$uses({ ...copyPositionLayout.bound });

@@ -1,5 +1,5 @@
 import tgpu, { TgpuBindGroup, TgpuBuffer, TgpuRoot, Uniform } from "typegpu";
-import { arrayOf, f32u32, u32 } from "typegpu/data";
+import { arrayOf, u32 } from "typegpu/data";
 import { PrefixSumKernel } from "webgpu-radix-sort";
 
 import gridClear from "./grid/gridClear.wgsl";

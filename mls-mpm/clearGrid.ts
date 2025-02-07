@@ -1,4 +1,5 @@
 import tgpu from "typegpu";
+import { builtin } from "typegpu/data";
 import { CellArray } from "./shared";
 
 export const clearGridLayout = tgpu
@@ -7,17 +8,16 @@ export const clearGridLayout = tgpu
   })
   .$idx(0);
 
-export const clearGridShader = tgpu.resolve({
-  template: /* wgsl */ `
-    @compute @workgroup_size(64)
-    fn clearGrid(@builtin(global_invocation_id) id: vec3<u32>) {
-      if (id.x < arrayLength(&_EXT_.cells)) {
-        _EXT_.cells[id.x].mass = 0;
-        _EXT_.cells[id.x].vx = 0;
-        _EXT_.cells[id.x].vy = 0;
-        _EXT_.cells[id.x].vz = 0;
+export const clearGridFn = tgpu["~unstable"]
+  .computeFn({ gid: builtin.globalInvocationId }, { workgroupSize: [64] })
+  .does(
+    `(input: Input) {
+      if (input.gid.x < arrayLength(&cells)) {
+        cells[input.gid.x].mass = 0;
+        cells[input.gid.x].vx = 0;
+        cells[input.gid.x].vy = 0;
+        cells[input.gid.x].vz = 0;
       }
-    }
-  `,
-  externals: { _EXT_: clearGridLayout.bound },
-});
+    }`,
+  )
+  .$uses({ ...clearGridLayout.bound });

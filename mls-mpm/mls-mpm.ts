@@ -1,11 +1,17 @@
-import { clearGridShader, clearGridLayout } from "./clearGrid";
+import { clearGridFn, clearGridLayout } from "./clearGrid";
 import { p2g_1Shader, p2g_1Layout } from "./p2g_1";
 import { p2g_2Shader, p2g_2Layout } from "./p2g_2";
 import { g2pShader, g2pLayout } from "./g2p";
-import { copyPositionShader, copyPositionLayout } from "./copyPosition";
+import { copyPositionFn, copyPositionLayout } from "./copyPosition";
 
 import { numParticlesMax, PosVelArray, renderUniformsViews } from "../common";
-import { Storage, TgpuBindGroup, TgpuBuffer, TgpuRoot, Uniform } from "typegpu";
+import tgpu, {
+  Storage,
+  TgpuBindGroup,
+  TgpuBuffer,
+  TgpuRoot,
+  Uniform,
+} from "typegpu";
 import { updateGridShader, updateGridLayout } from "./updateGrid";
 import { Vec3f, vec3f } from "typegpu/data";
 
@@ -51,7 +57,7 @@ export class MLSMPMSimulator {
     this.device = device;
     this.renderDiameter = renderDiameter;
     const clearGridModule = device.createShaderModule({
-      code: clearGridShader,
+      code: tgpu.resolve({ externals: { clearGridFn } }),
     });
     const p2g1Module = device.createShaderModule({ code: p2g_1Shader });
     const p2g2Module = device.createShaderModule({ code: p2g_2Shader });
@@ -60,7 +66,7 @@ export class MLSMPMSimulator {
     });
     const g2pModule = device.createShaderModule({ code: g2pShader });
     const copyPositionModule = device.createShaderModule({
-      code: copyPositionShader,
+      code: tgpu.resolve({ externals: { copyPositionFn } }),
     });
 
     const constants = {

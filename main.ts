@@ -156,7 +156,7 @@ async function main() {
     particleBuffer,
     root.unwrap(posvelBuffer),
     mlsmpmDiameter,
-    device,
+    root,
   );
   const sphFov = (45 * Math.PI) / 180;
   const sphRadius = 0.04;

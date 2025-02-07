@@ -20,7 +20,7 @@ const RealBoxSize = struct({
   zHalf: f32,
 });
 
-const SHPParams = struct({
+const SPHParams = struct({
   mass: f32,
   kernelRadius: f32,
   kernelRadiusPow2: f32,
@@ -57,7 +57,7 @@ export class SPHSimulator {
   cellParticleCountBuffer: GPUBuffer;
   particleBuffer: GPUBuffer;
   realBoxSizeBuffer: TgpuBuffer<typeof RealBoxSize>;
-  sphParamsBuffer: GPUBuffer;
+  sphParamsBuffer: TgpuBuffer<typeof SPHParams>;
 
   prefixSumKernel: any;
 
@@ -179,34 +179,6 @@ export class SPHSimulator {
     environmentViews.zHalf.set([zHalfMax]);
     environmentViews.offset.set([offset]);
 
-    const sphParamsValues = new ArrayBuffer(48);
-    const sphParamsViews = {
-      mass: new Float32Array(sphParamsValues, 0, 1),
-      kernelRadius: new Float32Array(sphParamsValues, 4, 1),
-      kernelRadiusPow2: new Float32Array(sphParamsValues, 8, 1),
-      kernelRadiusPow5: new Float32Array(sphParamsValues, 12, 1),
-      kernelRadiusPow6: new Float32Array(sphParamsValues, 16, 1),
-      kernelRadiusPow9: new Float32Array(sphParamsValues, 20, 1),
-      dt: new Float32Array(sphParamsValues, 24, 1),
-      stiffness: new Float32Array(sphParamsValues, 28, 1),
-      nearStiffness: new Float32Array(sphParamsValues, 32, 1),
-      restDensity: new Float32Array(sphParamsValues, 36, 1),
-      viscosity: new Float32Array(sphParamsValues, 40, 1),
-      n: new Uint32Array(sphParamsValues, 44, 1),
-    };
-    sphParamsViews.mass.set([mass]);
-    sphParamsViews.kernelRadius.set([this.kernelRadius]);
-    sphParamsViews.kernelRadiusPow2.set([Math.pow(this.kernelRadius, 2)]);
-    sphParamsViews.kernelRadiusPow5.set([Math.pow(this.kernelRadius, 5)]);
-    sphParamsViews.kernelRadiusPow6.set([Math.pow(this.kernelRadius, 6)]);
-    sphParamsViews.kernelRadiusPow9.set([Math.pow(this.kernelRadius, 9)]);
-    sphParamsViews.dt.set([dt]);
-    sphParamsViews.stiffness.set([stiffness]);
-    sphParamsViews.nearStiffness.set([nearStiffness]);
-    sphParamsViews.restDensity.set([restDensity]);
-    sphParamsViews.viscosity.set([viscosity]);
-    // n はあとで
-
     this.cellParticleCountBuffer = device.createBuffer({
       // 累積和はここに保存
       label: "cell particle count buffer",
@@ -232,13 +204,24 @@ export class SPHSimulator {
       size: environmentValues.byteLength,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
-    this.sphParamsBuffer = device.createBuffer({
-      label: "sph params buffer",
-      size: sphParamsValues.byteLength,
-      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-    });
+    this.sphParamsBuffer = root
+      .createBuffer(SPHParams, {
+        mass,
+        kernelRadius: this.kernelRadius,
+        kernelRadiusPow2: this.kernelRadius ** 2,
+        kernelRadiusPow5: this.kernelRadius ** 5,
+        kernelRadiusPow6: this.kernelRadius ** 6,
+        kernelRadiusPow9: this.kernelRadius ** 9,
+        dt,
+        stiffness,
+        nearStiffness,
+        restDensity,
+        viscosity,
+        n: 0, // n はあとで
+      })
+      .$usage("uniform")
+      .$name("sph params buffer");
     device.queue.writeBuffer(environmentBuffer, 0, environmentValues);
-    device.queue.writeBuffer(this.sphParamsBuffer, 0, sphParamsValues);
 
     // BindGroup
     this.gridClearBindGroup = device.createBindGroup({
@@ -254,7 +237,7 @@ export class SPHSimulator {
         { binding: 1, resource: { buffer: particleCellOffsetBuffer } },
         { binding: 2, resource: { buffer: particleBuffer } },
         { binding: 3, resource: { buffer: environmentBuffer } },
-        { binding: 4, resource: { buffer: this.sphParamsBuffer } },
+        { binding: 4, resource: { buffer: root.unwrap(this.sphParamsBuffer) } },
       ],
     });
     this.reorderBindGroup = device.createBindGroup({
@@ -265,7 +248,7 @@ export class SPHSimulator {
         { binding: 2, resource: { buffer: this.cellParticleCountBuffer } },
         { binding: 3, resource: { buffer: particleCellOffsetBuffer } },
         { binding: 4, resource: { buffer: environmentBuffer } },
-        { binding: 5, resource: { buffer: this.sphParamsBuffer } },
+        { binding: 5, resource: { buffer: root.unwrap(this.sphParamsBuffer) } },
       ],
     });
 
@@ -276,7 +259,7 @@ export class SPHSimulator {
         { binding: 1, resource: { buffer: targetParticlesBuffer } },
         { binding: 2, resource: { buffer: this.cellParticleCountBuffer } },
         { binding: 3, resource: { buffer: environmentBuffer } },
-        { binding: 4, resource: { buffer: this.sphParamsBuffer } },
+        { binding: 4, resource: { buffer: root.unwrap(this.sphParamsBuffer) } },
       ],
     });
     this.forceBindGroup = device.createBindGroup({
@@ -286,7 +269,7 @@ export class SPHSimulator {
         { binding: 1, resource: { buffer: targetParticlesBuffer } },
         { binding: 2, resource: { buffer: this.cellParticleCountBuffer } },
         { binding: 3, resource: { buffer: environmentBuffer } },
-        { binding: 4, resource: { buffer: this.sphParamsBuffer } },
+        { binding: 4, resource: { buffer: root.unwrap(this.sphParamsBuffer) } },
       ],
     });
     this.integrateBindGroup = device.createBindGroup({
@@ -297,7 +280,7 @@ export class SPHSimulator {
           binding: 1,
           resource: { buffer: root.unwrap(this.realBoxSizeBuffer) },
         },
-        { binding: 2, resource: { buffer: this.sphParamsBuffer } },
+        { binding: 2, resource: { buffer: root.unwrap(this.sphParamsBuffer) } },
       ],
     });
     this.copyPositionBindGroup = device.createBindGroup({
@@ -305,7 +288,7 @@ export class SPHSimulator {
       entries: [
         { binding: 0, resource: { buffer: particleBuffer } },
         { binding: 1, resource: { buffer: posvelBuffer } },
-        { binding: 2, resource: { buffer: this.sphParamsBuffer } },
+        { binding: 2, resource: { buffer: root.unwrap(this.sphParamsBuffer) } },
       ],
     });
 
@@ -318,7 +301,11 @@ export class SPHSimulator {
     const numParticleValue = new Float32Array(1);
     numParticleValue[0] = this.numParticles;
     console.log(this.numParticles);
-    this.device.queue.writeBuffer(this.sphParamsBuffer, 44, numParticleValue); // TODO : avoid hardcoding
+    this.device.queue.writeBuffer(
+      this.root.unwrap(this.sphParamsBuffer),
+      44,
+      numParticleValue,
+    ); // TODO : avoid hardcoding
     this.device.queue.writeBuffer(this.particleBuffer, 0, particleData);
     this.realBoxSizeBuffer.write({
       xHalf: initHalfBoxSize[0],
@@ -406,9 +393,10 @@ export class SPHSimulator {
   }
 
   changeBoxSize(realBoxSize: number[]) {
-    const realBoxSizeValues = new ArrayBuffer(12);
-    const realBoxSizeViews = new Float32Array(realBoxSizeValues);
-    realBoxSizeViews.set(realBoxSize);
-    this.device.queue.writeBuffer(this.realBoxSizeBuffer, 0, realBoxSizeViews);
+    this.realBoxSizeBuffer.write({
+      xHalf: realBoxSize[0],
+      yHalf: realBoxSize[1],
+      zHalf: realBoxSize[2],
+    });
   }
 }

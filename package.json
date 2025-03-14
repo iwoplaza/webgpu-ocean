@@ -14,6 +14,6 @@
     "wgpu-matrix": "^3.3.0"
   },
   "dependencies": {
-    "typegpu": "^0.3.4"
+    "typegpu": "https://pkg.pr.new/software-mansion/TypeGPU/typegpu@b1dc788a4088c9cc47ae111c8f20ddd37c6ca863"
   }
 }

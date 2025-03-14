@@ -1,16 +1,16 @@
 import { clearGridFn, clearGridLayout } from "./clearGrid";
-import { p2g_1Shader, p2g_1Layout } from "./p2g_1";
+import { p2g_1Fn, p2g_1Layout } from "./p2g_1";
 import { p2g_2Shader, p2g_2Layout } from "./p2g_2";
 import { g2pShader, g2pLayout } from "./g2p";
 import { copyPositionFn, copyPositionLayout } from "./copyPosition";
 
 import { numParticlesMax, PosVelArray, renderUniforms } from "../common";
 import tgpu, {
-  Storage,
+  StorageFlag,
   TgpuBindGroup,
   TgpuBuffer,
   TgpuRoot,
-  Uniform,
+  UniformFlag,
 } from "typegpu";
 import { updateGridShader, updateGridLayout } from "./updateGrid";
 import { Vec3f, vec3f } from "typegpu/data";
@@ -22,8 +22,8 @@ export class MLSMPMSimulator {
   max_y_grids = 64;
   max_z_grids = 64;
   cellStructSize = 16;
-  realBoxSizeBuffer: TgpuBuffer<Vec3f> & Uniform;
-  initBoxSizeBuffer: TgpuBuffer<Vec3f> & Uniform;
+  realBoxSizeBuffer: TgpuBuffer<Vec3f> & UniformFlag;
+  initBoxSizeBuffer: TgpuBuffer<Vec3f> & UniformFlag;
   numParticles = 0;
   gridCount = 0;
 
@@ -49,7 +49,7 @@ export class MLSMPMSimulator {
 
   constructor(
     particleBuffer: GPUBuffer,
-    posvelBuffer: TgpuBuffer<ReturnType<typeof PosVelArray>> & Storage,
+    posvelBuffer: TgpuBuffer<ReturnType<typeof PosVelArray>> & StorageFlag,
     renderDiameter: number,
     private root: TgpuRoot,
   ) {
@@ -59,7 +59,9 @@ export class MLSMPMSimulator {
     const clearGridModule = device.createShaderModule({
       code: tgpu.resolve({ externals: { clearGridFn } }),
     });
-    const p2g1Module = device.createShaderModule({ code: p2g_1Shader });
+    const p2g1Module = device.createShaderModule({
+      code: tgpu.resolve({ externals: { p2g_1Fn } }),
+    });
     const p2g2Module = device.createShaderModule({ code: p2g_2Shader });
     const updateGridModule = device.createShaderModule({
       code: updateGridShader,

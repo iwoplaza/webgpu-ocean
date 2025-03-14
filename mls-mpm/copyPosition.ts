@@ -2,27 +2,27 @@ import tgpu from "typegpu";
 import { ParticleArray } from "./shared";
 import { PosVelArray } from "../common";
 import { builtin } from "typegpu/data";
+import { arrayLength } from "typegpu/std";
 
-export const copyPositionLayout = tgpu
-  .bindGroupLayout({
-    particles: { storage: ParticleArray, access: "readonly" },
-    posvel: { storage: PosVelArray, access: "mutable" },
-  })
-  .$idx(0);
+export const copyPositionLayout = tgpu.bindGroupLayout({
+  particles: { storage: ParticleArray, access: "readonly" },
+  posvel: { storage: PosVelArray, access: "mutable" },
+});
+
+const { particles, posvel } = copyPositionLayout.bound;
 
 export const copyPositionFn = tgpu["~unstable"]
-  .computeFn(
-    {
+  .computeFn({
+    workgroupSize: [64],
+    in: {
       gid: builtin.globalInvocationId,
     },
-    { workgroupSize: [64] },
-  )
-  .does(
-    /* wgsl */ `(input: Input) {
-      if (input.gid.x < arrayLength(&particles)) { // 変える
-        posvel[input.gid.x].position = particles[input.gid.x].position;
-        posvel[input.gid.x].v = particles[input.gid.x].v;
-      }
-    }`,
-  )
-  .$uses({ ...copyPositionLayout.bound });
+  })
+  .does((input) => {
+    if (input.gid.x < arrayLength(particles.value)) {
+      // 変える
+      posvel.value[input.gid.x].position =
+        particles.value[input.gid.x].position;
+      posvel.value[input.gid.x].v = particles.value[input.gid.x].v;
+    }
+  });

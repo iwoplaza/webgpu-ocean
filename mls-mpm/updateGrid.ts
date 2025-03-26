@@ -1,7 +1,7 @@
-import tgpu from 'typegpu'
-import { vec3f } from 'typegpu/data'
-import { CellArray } from './shared'
-import { decodeFixedPoint, encodeFixedPoint } from './fixedPoint'
+import tgpu from 'typegpu';
+import { vec3f } from 'typegpu/data';
+import { CellArray } from './shared';
+import { decodeFixedPoint, encodeFixedPoint } from './fixedPoint';
 
 export const updateGridLayout = tgpu
     .bindGroupLayout({
@@ -9,7 +9,7 @@ export const updateGridLayout = tgpu
         realBoxSize: { uniform: vec3f },
         initBoxSize: { uniform: vec3f },
     })
-    .$idx(0)
+    .$idx(0);
 
 export const updateGridShader = tgpu.resolve({
     template: `
@@ -45,4 +45,4 @@ export const updateGridShader = tgpu.resolve({
         encodeFixedPoint,
         decodeFixedPoint,
     },
-})
+});

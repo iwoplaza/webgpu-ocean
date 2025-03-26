@@ -1,7 +1,7 @@
-import tgpu from 'typegpu'
-import { CellArray, ParticleArray } from './shared'
-import { vec3f } from 'typegpu/data'
-import { decodeFixedPoint } from './fixedPoint'
+import tgpu from 'typegpu';
+import { CellArray, ParticleArray } from './shared';
+import { vec3f } from 'typegpu/data';
+import { decodeFixedPoint } from './fixedPoint';
 
 export const g2pLayout = tgpu
     .bindGroupLayout({
@@ -10,7 +10,7 @@ export const g2pLayout = tgpu
         realBoxSize: { uniform: vec3f },
         initBoxSize: { uniform: vec3f },
     })
-    .$idx(0)
+    .$idx(0);
 
 export const g2pShader = tgpu.resolve({
     template: /* wgsl */ `
@@ -85,4 +85,4 @@ export const g2pShader = tgpu.resolve({
     }
   `,
     externals: { ...g2pLayout.bound, decodeFixedPoint },
-})
+});

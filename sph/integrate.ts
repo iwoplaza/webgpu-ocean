@@ -1,12 +1,12 @@
-import tgpu from 'typegpu'
-import { ParticleArray, SPHParams } from './shared'
-import * as d from 'typegpu/data'
+import tgpu from 'typegpu';
+import { ParticleArray, SPHParams } from './shared';
+import * as d from 'typegpu/data';
 
 export const RealBoxSize = d.struct({
     xHalf: d.f32,
     yHalf: d.f32,
     zHalf: d.f32,
-})
+});
 
 export const integrateLayout = tgpu
     .bindGroupLayout({
@@ -14,7 +14,7 @@ export const integrateLayout = tgpu
         realBoxSize: { uniform: RealBoxSize },
         params: { uniform: SPHParams },
     })
-    .$idx(0)
+    .$idx(0);
 
 export const integrateShader = tgpu.resolve({
     template: /* wgsl */ `
@@ -52,4 +52,4 @@ export const integrateShader = tgpu.resolve({
     }
   }`,
     externals: { _EXT_: integrateLayout.bound },
-})
+});

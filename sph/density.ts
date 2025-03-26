@@ -1,54 +1,56 @@
-import tgpu from "typegpu";
-import { floor } from "typegpu/std";
-import { arrayOf, f32, i32, u32, vec3f, vec3i } from "typegpu/data";
-import { Environment, ParticleArray, SPHParams } from "./shared";
+import tgpu from 'typegpu';
+import { floor } from 'typegpu/std';
+import { arrayOf, f32, i32, u32, vec3f, vec3i } from 'typegpu/data';
+import { Environment, ParticleArray, SPHParams } from './shared';
 
 const densityLayout = tgpu
-  .bindGroupLayout({
-    particles: { storage: ParticleArray, access: "mutable" },
-    sortedParticles: { storage: ParticleArray },
-    prefixSum: { storage: (n: number) => arrayOf(u32, n) },
-    env: { uniform: Environment },
-    params: { uniform: SPHParams },
-  })
-  .$idx(0);
+    .bindGroupLayout({
+        particles: { storage: ParticleArray, access: 'mutable' },
+        sortedParticles: { storage: ParticleArray },
+        prefixSum: { storage: (n: number) => arrayOf(u32, n) },
+        env: { uniform: Environment },
+        params: { uniform: SPHParams },
+    })
+    .$idx(0);
 
 const { params, env } = densityLayout.bound;
 
-const nearDensityKernel = tgpu["~unstable"].fn([f32], f32).does((r) => {
-  const scale = 15.0 / (3.1415926535 * params.value.kernelRadiusPow6);
-  const d = params.value.kernelRadius - r;
-  return scale * d * d * d;
+const nearDensityKernel = tgpu['~unstable'].fn([f32], f32).does((r) => {
+    const scale = 15.0 / (3.1415926535 * params.value.kernelRadiusPow6);
+    const d = params.value.kernelRadius - r;
+    return scale * d * d * d;
 });
 
-const densityKernel = tgpu["~unstable"].fn([f32], f32).does((r) => {
-  const scale = 315.0 / (64 * 3.1415926535 * params.value.kernelRadiusPow9);
-  const dd = params.value.kernelRadiusPow2 - r * r;
-  return scale * dd * dd * dd;
+const densityKernel = tgpu['~unstable'].fn([f32], f32).does((r) => {
+    const scale = 315.0 / (64 * 3.1415926535 * params.value.kernelRadiusPow9);
+    const dd = params.value.kernelRadiusPow2 - r * r;
+    return scale * dd * dd * dd;
 });
 
-const cellPosition = tgpu["~unstable"].fn([vec3f], vec3i).does((v) => {
-  const xi = i32(
-    floor((v.x + env.value.xHalf + env.value.offset) / env.value.cellSize),
-  );
-  const yi = i32(
-    floor((v.y + env.value.yHalf + env.value.offset) / env.value.cellSize),
-  );
-  const zi = i32(
-    floor((v.z + env.value.zHalf + env.value.offset) / env.value.cellSize),
-  );
-  return vec3i(xi, yi, zi);
+const cellPosition = tgpu['~unstable'].fn([vec3f], vec3i).does((v) => {
+    const xi = i32(
+        floor((v.x + env.value.xHalf + env.value.offset) / env.value.cellSize)
+    );
+    const yi = i32(
+        floor((v.y + env.value.yHalf + env.value.offset) / env.value.cellSize)
+    );
+    const zi = i32(
+        floor((v.z + env.value.zHalf + env.value.offset) / env.value.cellSize)
+    );
+    return vec3i(xi, yi, zi);
 });
 
-const cellNumberFromId = tgpu["~unstable"]
-  .fn([i32, i32, i32], i32)
-  .does(
-    (xi, yi, zi) =>
-      xi + yi * env.value.xGrids + zi * env.value.xGrids * env.value.yGrids,
-  );
+const cellNumberFromId = tgpu['~unstable']
+    .fn([i32, i32, i32], i32)
+    .does(
+        (xi, yi, zi) =>
+            xi +
+            yi * env.value.xGrids +
+            zi * env.value.xGrids * env.value.yGrids
+    );
 
 export const densityShader = tgpu.resolve({
-  template: `
+    template: `
     @compute @workgroup_size(64)
     fn computeDensity(@builtin(global_invocation_id) id: vec3<u32>) {
       if (id.x < params.n) {
@@ -94,11 +96,11 @@ export const densityShader = tgpu.resolve({
       }
     }
   `,
-  externals: {
-    ...densityLayout.bound,
-    nearDensityKernel,
-    densityKernel,
-    cellPosition,
-    cellNumberFromId,
-  },
+    externals: {
+        ...densityLayout.bound,
+        nearDensityKernel,
+        densityKernel,
+        cellPosition,
+        cellNumberFromId,
+    },
 });

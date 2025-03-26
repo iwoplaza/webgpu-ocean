@@ -1,6 +1,6 @@
-import tgpu from 'typegpu'
-import { ParticleArray, SPHParams } from './shared'
-import { PosVelArray } from '../common'
+import tgpu from 'typegpu';
+import { ParticleArray, SPHParams } from './shared';
+import { PosVelArray } from '../common';
 
 export const copyPositionLayout = tgpu
     .bindGroupLayout({
@@ -8,7 +8,7 @@ export const copyPositionLayout = tgpu
         posvel: { storage: PosVelArray, access: 'mutable' },
         env: { uniform: SPHParams },
     })
-    .$idx(0)
+    .$idx(0);
 
 export const copyPositionShader = tgpu.resolve({
     template: /* wgsl */ `
@@ -21,4 +21,4 @@ export const copyPositionShader = tgpu.resolve({
     }
   `,
     externals: { _EXT_: copyPositionLayout.bound },
-})
+});

@@ -1,23 +1,23 @@
-import tgpu from "typegpu";
-import { ParticleArray, SPHParams } from "./shared";
-import * as d from "typegpu/data";
+import tgpu from 'typegpu'
+import { ParticleArray, SPHParams } from './shared'
+import * as d from 'typegpu/data'
 
 export const RealBoxSize = d.struct({
-  xHalf: d.f32,
-  yHalf: d.f32,
-  zHalf: d.f32,
-});
+    xHalf: d.f32,
+    yHalf: d.f32,
+    zHalf: d.f32,
+})
 
 export const integrateLayout = tgpu
-  .bindGroupLayout({
-    particles: { storage: ParticleArray, access: "mutable" },
-    realBoxSize: { uniform: RealBoxSize },
-    params: { uniform: SPHParams },
-  })
-  .$idx(0);
+    .bindGroupLayout({
+        particles: { storage: ParticleArray, access: 'mutable' },
+        realBoxSize: { uniform: RealBoxSize },
+        params: { uniform: SPHParams },
+    })
+    .$idx(0)
 
 export const integrateShader = tgpu.resolve({
-  template: /* wgsl */ `
+    template: /* wgsl */ `
   @compute @workgroup_size(64)
   fn integrate(@builtin(global_invocation_id) id: vec3<u32>) {
     if (id.x < _EXT_.params.n) {
@@ -51,5 +51,5 @@ export const integrateShader = tgpu.resolve({
       }
     }
   }`,
-  externals: { _EXT_: integrateLayout.bound },
-});
+    externals: { _EXT_: integrateLayout.bound },
+})

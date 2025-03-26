@@ -1,18 +1,18 @@
-import tgpu from "typegpu";
-import { CellAtomicExceptMassArray, ParticleArray } from "./shared";
-import { vec3f } from "typegpu/data";
-import { decodeFixedPoint, encodeFixedPoint } from "./fixedPoint";
+import tgpu from 'typegpu'
+import { CellAtomicExceptMassArray, ParticleArray } from './shared'
+import { vec3f } from 'typegpu/data'
+import { decodeFixedPoint, encodeFixedPoint } from './fixedPoint'
 
 export const p2g_2Layout = tgpu
-  .bindGroupLayout({
-    particles: { storage: ParticleArray },
-    cells: { storage: CellAtomicExceptMassArray, access: "mutable" },
-    initBoxSize: { uniform: vec3f },
-  })
-  .$idx(0);
+    .bindGroupLayout({
+        particles: { storage: ParticleArray },
+        cells: { storage: CellAtomicExceptMassArray, access: 'mutable' },
+        initBoxSize: { uniform: vec3f },
+    })
+    .$idx(0)
 
 export const p2g_2Shader = tgpu.resolve({
-  template: `
+    template: `
     override stiffness: f32;
     override rest_density: f32;
     override dynamic_viscosity: f32;
@@ -84,5 +84,5 @@ export const p2g_2Shader = tgpu.resolve({
         }
     }
   `,
-  externals: { ...p2g_2Layout.bound, encodeFixedPoint, decodeFixedPoint },
-});
+    externals: { ...p2g_2Layout.bound, encodeFixedPoint, decodeFixedPoint },
+})

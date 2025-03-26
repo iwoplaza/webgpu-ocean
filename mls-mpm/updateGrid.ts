@@ -1,18 +1,18 @@
-import tgpu from "typegpu";
-import { vec3f } from "typegpu/data";
-import { CellArray } from "./shared";
-import { decodeFixedPoint, encodeFixedPoint } from "./fixedPoint";
+import tgpu from 'typegpu'
+import { vec3f } from 'typegpu/data'
+import { CellArray } from './shared'
+import { decodeFixedPoint, encodeFixedPoint } from './fixedPoint'
 
 export const updateGridLayout = tgpu
-  .bindGroupLayout({
-    cells: { storage: CellArray, access: "mutable" },
-    realBoxSize: { uniform: vec3f },
-    initBoxSize: { uniform: vec3f },
-  })
-  .$idx(0);
+    .bindGroupLayout({
+        cells: { storage: CellArray, access: 'mutable' },
+        realBoxSize: { uniform: vec3f },
+        initBoxSize: { uniform: vec3f },
+    })
+    .$idx(0)
 
 export const updateGridShader = tgpu.resolve({
-  template: `
+    template: `
     override dt: f32;
 
     @compute @workgroup_size(64)
@@ -40,9 +40,9 @@ export const updateGridShader = tgpu.resolve({
       }
     }
   `,
-  externals: {
-    _EXT_: updateGridLayout.bound,
-    encodeFixedPoint,
-    decodeFixedPoint,
-  },
-});
+    externals: {
+        _EXT_: updateGridLayout.bound,
+        encodeFixedPoint,
+        decodeFixedPoint,
+    },
+})

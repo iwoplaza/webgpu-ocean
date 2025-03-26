@@ -6,14 +6,14 @@
   },
   "devDependencies": {
     "@webgpu/types": "^0.1.51",
-    "rollup-plugin-typegpu": "^0.0.1",
+    "unplugin-typegpu": "^0.1.0-alpha.3",
     "typescript": "^5.7.2",
     "vite": "^6.0.3",
     "vite-plugin-glsl": "^1.3.1",
     "webgpu-radix-sort": "^1.0.7",
-    "wgpu-matrix": "^3.3.0"
+    "wgpu-matrix": "^3.4.0"
   },
   "dependencies": {
-    "typegpu": "https://pkg.pr.new/software-mansion/TypeGPU/typegpu@b1dc788a4088c9cc47ae111c8f20ddd37c6ca863"
+    "typegpu": "^0.5.2"
   }
 }

@@ -1,11 +1,11 @@
 import tgpu from "typegpu";
 import { ParticleArray, SPHParams } from "./shared";
-import { f32, struct } from "typegpu/data";
+import * as d from "typegpu/data";
 
-export const RealBoxSize = struct({
-  xHalf: f32,
-  yHalf: f32,
-  zHalf: f32,
+export const RealBoxSize = d.struct({
+  xHalf: d.f32,
+  yHalf: d.f32,
+  zHalf: d.f32,
 });
 
 export const integrateLayout = tgpu

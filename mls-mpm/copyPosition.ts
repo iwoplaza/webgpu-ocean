@@ -2,7 +2,6 @@ import tgpu from 'typegpu';
 import { ParticleArray } from './shared';
 import { PosVelArray } from '../common';
 import { builtin } from 'typegpu/data';
-import { arrayLength } from 'typegpu/std';
 
 export const copyPositionLayout = tgpu.bindGroupLayout({
     particles: { storage: ParticleArray, access: 'readonly' },
@@ -19,7 +18,7 @@ export const copyPositionFn = tgpu['~unstable']
         },
     })
     .does((input) => {
-        if (input.gid.x < arrayLength(particles.value)) {
+        if (input.gid.x < particles.value.length) {
             // 変える
             posvel.value[input.gid.x].position =
                 particles.value[input.gid.x].position;

@@ -2,7 +2,7 @@ import tgpu from 'typegpu';
 import { CellAtomicArray, ParticleArray } from './shared';
 import { builtin, f32, i32, vec3f } from 'typegpu/data';
 import { encodeFixedPoint } from './fixedPoint';
-import { add, arrayLength, atomicAdd, floor, mul, sub } from 'typegpu/std';
+import { add, atomicAdd, floor, mul, sub } from 'typegpu/std';
 
 export const p2g_1Layout = tgpu
     .bindGroupLayout({
@@ -20,7 +20,7 @@ export const p2g_1Fn = tgpu['~unstable']
         in: { id: builtin.globalInvocationId },
     })
     .does((input) => {
-        if (input.id.x < arrayLength(particles.value)) {
+        if (input.id.x < particles.value.length) {
             const weights = [vec3f(), vec3f(), vec3f()];
 
             const particle = particles.value[input.id.x];
@@ -39,9 +39,9 @@ export const p2g_1Fn = tgpu['~unstable']
 
             const C = particle.C;
 
-            for (var gx = 0; gx < 3; gx++) {
-                for (var gy = 0; gy < 3; gy++) {
-                    for (var gz = 0; gz < 3; gz++) {
+            for (let gx = 0; gx < 3; gx++) {
+                for (let gy = 0; gy < 3; gy++) {
+                    for (let gz = 0; gz < 3; gz++) {
                         let weight =
                             weights[gx].x * weights[gy].y * weights[gz].z;
                         let cell_x = vec3f(

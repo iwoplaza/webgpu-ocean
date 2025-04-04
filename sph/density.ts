@@ -15,39 +15,55 @@ const densityLayout = tgpu
 
 const { params, env } = densityLayout.bound;
 
-const nearDensityKernel = tgpu['~unstable'].fn([f32], f32).does((r) => {
+const nearDensityKernel = tgpu['~unstable'].fn(
+    { r: f32 },
+    f32
+)((args) => {
     const scale = 15.0 / (3.1415926535 * params.value.kernelRadiusPow6);
-    const d = params.value.kernelRadius - r;
+    const d = params.value.kernelRadius - args.r;
     return scale * d * d * d;
 });
 
-const densityKernel = tgpu['~unstable'].fn([f32], f32).does((r) => {
+const densityKernel = tgpu['~unstable'].fn(
+    { r: f32 },
+    f32
+)((args) => {
     const scale = 315.0 / (64 * 3.1415926535 * params.value.kernelRadiusPow9);
-    const dd = params.value.kernelRadiusPow2 - r * r;
+    const dd = params.value.kernelRadiusPow2 - args.r * args.r;
     return scale * dd * dd * dd;
 });
 
-const cellPosition = tgpu['~unstable'].fn([vec3f], vec3i).does((v) => {
+const cellPosition = tgpu['~unstable'].fn(
+    { v: vec3f },
+    vec3i
+)((args) => {
     const xi = i32(
-        floor((v.x + env.value.xHalf + env.value.offset) / env.value.cellSize)
+        floor(
+            (args.v.x + env.value.xHalf + env.value.offset) / env.value.cellSize
+        )
     );
     const yi = i32(
-        floor((v.y + env.value.yHalf + env.value.offset) / env.value.cellSize)
+        floor(
+            (args.v.y + env.value.yHalf + env.value.offset) / env.value.cellSize
+        )
     );
     const zi = i32(
-        floor((v.z + env.value.zHalf + env.value.offset) / env.value.cellSize)
+        floor(
+            (args.v.z + env.value.zHalf + env.value.offset) / env.value.cellSize
+        )
     );
     return vec3i(xi, yi, zi);
 });
 
-const cellNumberFromId = tgpu['~unstable']
-    .fn([i32, i32, i32], i32)
-    .does(
-        (xi, yi, zi) =>
-            xi +
-            yi * env.value.xGrids +
-            zi * env.value.xGrids * env.value.yGrids
-    );
+const cellNumberFromId = tgpu['~unstable'].fn(
+    { xi: i32, yi: i32, zi: i32 },
+    i32
+)(
+    (args) =>
+        args.xi +
+        args.yi * env.value.xGrids +
+        args.zi * env.value.xGrids * env.value.yGrids
+);
 
 export const densityShader = tgpu.resolve({
     template: `

@@ -10,18 +10,16 @@ export const copyPositionLayout = tgpu.bindGroupLayout({
 
 const { particles, posvel } = copyPositionLayout.bound;
 
-export const copyPositionFn = tgpu['~unstable']
-    .computeFn({
-        workgroupSize: [64],
-        in: {
-            gid: builtin.globalInvocationId,
-        },
-    })
-    .does((input) => {
-        if (input.gid.x < particles.value.length) {
-            // 変える
-            posvel.value[input.gid.x].position =
-                particles.value[input.gid.x].position;
-            posvel.value[input.gid.x].v = particles.value[input.gid.x].v;
-        }
-    });
+export const copyPositionFn = tgpu['~unstable'].computeFn({
+    workgroupSize: [64],
+    in: {
+        gid: builtin.globalInvocationId,
+    },
+})((input) => {
+    if (input.gid.x < particles.value.length) {
+        // 変える
+        posvel.value[input.gid.x].position =
+            particles.value[input.gid.x].position;
+        posvel.value[input.gid.x].v = particles.value[input.gid.x].v;
+    }
+});

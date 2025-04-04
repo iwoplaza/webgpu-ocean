@@ -8,13 +8,14 @@ export const clearGridLayout = tgpu.bindGroupLayout({
 
 const { cells } = clearGridLayout.bound;
 
-export const clearGridFn = tgpu['~unstable']
-    .computeFn({ workgroupSize: [64], in: { gid: builtin.globalInvocationId } })
-    .does((input) => {
-        if (input.gid.x < cells.value.length) {
-            cells.value[input.gid.x].mass = 0;
-            cells.value[input.gid.x].vx = 0;
-            cells.value[input.gid.x].vy = 0;
-            cells.value[input.gid.x].vz = 0;
-        }
-    });
+export const clearGridFn = tgpu['~unstable'].computeFn({
+    workgroupSize: [64],
+    in: { gid: builtin.globalInvocationId },
+})((input) => {
+    if (input.gid.x < cells.value.length) {
+        cells.value[input.gid.x].mass = 0;
+        cells.value[input.gid.x].vx = 0;
+        cells.value[input.gid.x].vy = 0;
+        cells.value[input.gid.x].vz = 0;
+    }
+});
